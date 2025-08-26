@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Recommender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #141414;
+        }
+        .movie-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .movie-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <div class="container mx-auto px-4 py-12">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-red-600 mb-2">Movie Recommender</h1>
+            <p class="text-lg text-gray-400">Find your next favorite movie based on what you already love.</p>
+        </header>
+
+        <main>
+            <div class="max-w-xl mx-auto mb-12">
+                <label for="movie-select" class="block text-lg font-medium text-gray-300 mb-2">Select a movie you like:</label>
+                <select id="movie-select" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <option>Loading movies...</option>
+                </select>
+                <button id="recommend-btn" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300" disabled>
+                    Get Recommendations
+                </button>
+            </div>
+
+            <div id="recommendations-container" class="hidden">
+                <h2 class="text-3xl font-bold mb-6 border-l-4 border-red-600 pl-4">Because you watched <span id="selected-movie-title" class="text-red-500"></span>...</h2>
+                <div id="recommendations-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    <!-- Recommended movies will be populated here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const movieSelect = document.getElementById('movie-select');
+        const recommendBtn = document.getElementById('recommend-btn');
+        const recommendationsContainer = document.getElementById('recommendations-container');
+        const recommendationsGrid = document.getElementById('recommendations-grid');
+        const selectedMovieTitle = document.getElementById('selected-movie-title');
+        const API_BASE_URL = 'http://127.0.0.1:5000';
+
+        // --- 1. Populate the movie dropdown on page load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch(`${API_BASE_URL}/movies`)
+                .then(response => response.json())
+                .then(movieTitles => {
+                    movieSelect.innerHTML = '<option value="" disabled selected>Select a movie</option>'; // Clear loading text
+                    movieTitles.forEach(title => {
+                        const option = document.createElement('option');
+                        option.value = title;
+                        option.textContent = title;
+                        movieSelect.appendChild(option);
+                    });
+                    recommendBtn.disabled = false; // Enable the button
+                })
+                .catch(error => {
+                    console.error('Error fetching movie list:', error);
+                    movieSelect.innerHTML = '<option>Could not load movies</option>';
+                });
+        });
+
+        // --- 2. Get recommendations on button click ---
+        recommendBtn.addEventListener('click', () => {
+            const selectedMovie = movieSelect.value;
+            if (!selectedMovie) return;
+
+            // Show loading state or spinner here if desired
+            recommendationsGrid.innerHTML = '<p class="col-span-full text-center">Finding recommendations...</p>';
+            recommendationsContainer.classList.remove('hidden');
+            selectedMovieTitle.textContent = selectedMovie;
+
+            fetch(`${API_BASE_URL}/recommend`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ title: selectedMovie }),
+            })
+            .then(response => response.json())
+            .then(recommendations => {
+                recommendationsGrid.innerHTML = ''; // Clear loading text
+                
+                if (recommendations && recommendations.length > 0) {
+                    recommendations.forEach(recTitle => {
+                        const posterUrl = `https://placehold.co/500x750/1a202c/ffffff?text=${encodeURIComponent(recTitle)}`;
+                        const card = `
+                            <div class="movie-card bg-gray-800 rounded-lg overflow-hidden shadow-lg">
+                                <img src="${posterUrl}" alt="${recTitle}" class="w-full h-auto object-cover" onerror="this.onerror=null;this.src='https://placehold.co/500x750/141414/ffffff?text=Image+Not+Found';">
+                                <div class="p-4">
+                                    <h3 class="font-bold text-lg">${recTitle}</h3>
+                                </div>
+                            </div>
+                        `;
+                        recommendationsGrid.innerHTML += card;
+                    });
+                } else {
+                    recommendationsGrid.innerHTML = '<p class="col-span-full text-center">Could not find any recommendations.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching recommendations:', error);
+                recommendationsGrid.innerHTML = '<p class="col-span-full text-center text-red-500">Error fetching recommendations. Is the server running?</p>';
+            });
+        });
+    </script>
+</body>
+</html>
